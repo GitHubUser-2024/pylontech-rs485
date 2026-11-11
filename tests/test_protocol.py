@@ -76,6 +76,34 @@ class DecodeTest(unittest.TestCase):
         self.assertEqual(al["active"], [])
         self.assertEqual(len(al["cells"]), 15)
         self.assertEqual(al["status_bytes"], [0x00, 0x0E, 0x80, 0x00, 0x00, 0x00])
+        st = al["status"]
+        self.assertEqual(st["protections"], [])
+        self.assertTrue(st["charge_mosfet"] and st["discharge_mosfet"] and st["using_battery_power"])
+        self.assertFalse(st["precharge_mosfet"])
+        self.assertTrue(st["charge_current"])
+        self.assertFalse(st["discharge_current"] or st["fully_charged"] or st["heater"] or st["buzzer"])
+        self.assertEqual(st["cell_errors"], [])
+        self.assertEqual(st["extra"], [0x00])
+
+    def test_status_bits(self):
+        st = P.decode_status([0x81, 0x05, 0x69, 0x02, 0x40])
+        self.assertEqual(st["protections"], ["module over voltage", "module under voltage"])
+        self.assertTrue(st["precharge_mosfet"] and st["discharge_mosfet"])
+        self.assertFalse(st["charge_mosfet"] or st["using_battery_power"])
+        self.assertTrue(st["buzzer"] and st["fully_charged"] and st["heater"] and st["discharge_current"])
+        self.assertFalse(st["charge_current"])
+        self.assertEqual(st["cell_errors"], [2, 15])
+        self.assertEqual(st["extra"], [])
+
+    def test_status_short(self):
+        st = P.decode_status([])
+        self.assertEqual(st["protections"], [])
+        self.assertFalse(st["charge_mosfet"])
+
+    def test_alarm_protection_listed(self):
+        info = "0002" "01" "00" "01" "00" "000000" "10" "00" "00" "01" "00"
+        al = P.decode_alarm(info)
+        self.assertEqual(al["active"], ["protection: discharge over current", "cell 1 error"])
 
     def test_alarm_active(self):
         info = "0002" "03" "000200" "01" "01" "00" "02" "00" "00"

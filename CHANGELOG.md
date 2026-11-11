@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0 — 2026-11-11
+
+- 0x44: status bytes decoded (`alarms.status`): BMS protections, charge / discharge / pre-charge MOSFET, effective charge / discharge current, fully charged, heater, buzzer, per-cell error flags. Active protections and cell errors are added to `alarms.active`. Raw bytes stay in `status_bytes`.
+- New `protocol.decode_status()`.
+
 ## 0.1.0 — 2026-11-11
 
 First version.

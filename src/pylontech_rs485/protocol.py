@@ -190,12 +190,52 @@ def _alarm_state(v):
     return ALARM_STATES.get(v, "unknown 0x%02X" % v)
 
 
+# Status bytes that follow the pack-level states in a 0x44 reply (Pylontech RS485
+# protocol 3.3/3.5, "Status 1".."Status 5"). Bit -> name.
+STATUS1_PROTECTIONS = {
+    0: "module over voltage",
+    1: "cell under voltage",
+    2: "charge over current",
+    4: "discharge over current",
+    5: "discharge over temperature",
+    6: "charge over temperature",
+    7: "module under voltage",
+}
+STATUS2_BITS = {0: "precharge_mosfet", 1: "charge_mosfet", 2: "discharge_mosfet", 3: "using_battery_power"}
+STATUS3_BITS = {0: "buzzer", 3: "fully_charged", 5: "heater", 6: "discharge_current", 7: "charge_current"}
+
+
+def decode_status(status_bytes):
+    """Decode the trailing status bytes of a 0x44 reply.
+
+    ``status_bytes`` is the list after the three pack-level states. Missing bytes
+    count as 0; bytes after Status 5 are returned unchanged in ``extra``.
+
+    * ``protections``: active protections from Status 1 (empty = none)
+    * ``charge_mosfet`` / ``discharge_mosfet`` / ``precharge_mosfet`` /
+      ``using_battery_power``: Status 2 bits
+    * ``charge_current`` / ``discharge_current``: Status 3 "effective current" bits
+      (the BMS sees a real charge / discharge current), plus ``fully_charged``,
+      ``heater``, ``buzzer``
+    * ``cell_errors``: cell numbers flagged in Status 4 (cells 1-8) and Status 5 (9-16)
+    """
+    b = list(status_bytes) + [0] * max(0, 5 - len(status_bytes))
+    s1, s2, s3, s4, s5 = b[:5]
+    out = {"protections": [name for bit, name in sorted(STATUS1_PROTECTIONS.items()) if s1 >> bit & 1]}
+    out.update({name: bool(s2 >> bit & 1) for bit, name in STATUS2_BITS.items()})
+    out.update({name: bool(s3 >> bit & 1) for bit, name in STATUS3_BITS.items()})
+    out["cell_errors"] = [i + 1 for i in range(8) if s4 >> i & 1] + [i + 9 for i in range(8) if s5 >> i & 1]
+    out["extra"] = b[5:]
+    return out
+
+
 def decode_alarm(info):
     """Decode the INFO of a 0x44 (alarm info) response.
 
-    Returns per-cell / per-temperature states, the three pack-level states, a list
-    of active alarms (empty = all normal) and the trailing status bytes (raw; their
-    bit meaning is not decoded).
+    Returns per-cell / per-temperature states, the three pack-level states, the
+    decoded status bytes (``status``, see :func:`decode_status`; raw in
+    ``status_bytes``) and a list of active alarms (empty = all normal). Active
+    protections and cell errors from the status bytes are listed as alarms too.
     """
     r = _Reader(info)
     data_flag = r.u(1)
@@ -210,6 +250,9 @@ def decode_alarm(info):
     active = ["cell %d %s" % (i + 1, _alarm_state(v)) for i, v in enumerate(cells) if v]
     active += ["temperature %s %s" % (labels[i], _alarm_state(v)) for i, v in enumerate(temps) if v]
     active += ["%s %s" % (k.replace("_", " "), _alarm_state(v)) for k, v in pack.items() if v]
+    st = decode_status(status)
+    active += ["protection: %s" % name for name in st["protections"]]
+    active += ["cell %d error" % c for c in st["cell_errors"]]
     return {
         "address": address,
         "data_flag": data_flag,
@@ -219,6 +262,7 @@ def decode_alarm(info):
         "pack_voltage": _alarm_state(pack["pack_voltage"]),
         "discharge_current": _alarm_state(pack["discharge_current"]),
         "active": active,
+        "status": st,
         "status_bytes": status,
     }
 

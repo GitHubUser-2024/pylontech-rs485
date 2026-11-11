@@ -89,7 +89,13 @@ The port is locked with `flock` while in use, so two runs (e.g. a cron job and a
   "alarms": {
     "cells": ["normal", "..."], "temperatures": {"bms": "normal", "...": "..."},
     "charge_current": "normal", "pack_voltage": "normal", "discharge_current": "normal",
-    "active": [], "status_bytes": [0, 14, 128, 0, 0, 0], "address": 2, "data_flag": 0
+    "active": [],
+    "status": {
+      "protections": [], "precharge_mosfet": false, "charge_mosfet": true, "discharge_mosfet": true,
+      "using_battery_power": true, "buzzer": false, "fully_charged": false, "heater": false,
+      "discharge_current": false, "charge_current": true, "cell_errors": [], "extra": [0]
+    },
+    "status_bytes": [0, 14, 128, 0, 0, 0], "address": 2, "data_flag": 0
   },
   "management": {
     "charge_voltage_limit_v": 53.25, "discharge_voltage_limit_v": 45.0,
@@ -105,7 +111,17 @@ Notes:
 - `current_a` is positive while charging, negative while discharging.
 - `soc_pct` is `remaining_ah / full_ah` as reported over RS485. An inverter or GX device that reads SOC over CAN may show a slightly different number.
 - Temperatures are labelled for a 15-cell module (BMS board + four cell groups); other layouts get `t1`, `t2`, ….
-- `alarms.active` lists everything not normal, as readable text; empty means all clear. `status_bytes` are passed through raw: their bit meaning is not decoded yet.
+- `alarms.active` lists everything not normal, as readable text; empty means all clear. Active BMS protections and cell errors from the status bytes are included (`protection: …`, `cell N error`).
+- `alarms.status` decodes the status bytes (raw in `status_bytes`):
+
+  | Byte | Bits |
+  |---|---|
+  | Status 1 | protections: 0 module over voltage, 1 cell under voltage, 2 charge over current, 4 discharge over current, 5 discharge over temperature, 6 charge over temperature, 7 module under voltage |
+  | Status 2 | 0 pre-charge MOSFET, 1 charge MOSFET, 2 discharge MOSFET, 3 running on battery power |
+  | Status 3 | 0 buzzer, 3 fully charged, 5 heater, 6 effective discharge current, 7 effective charge current |
+  | Status 4 / 5 | cell error, cells 1–8 / 9–16 |
+
+  Bit meanings follow the Pylontech RS485 protocol document. Checked on a US3000C: `00 0E 80` while charging (both MOSFETs on, charge current flowing). Further bytes (the US3000C sends one more `00`) end up in `extra`.
 
 ### History and statistics
 
@@ -151,7 +167,7 @@ Example: analog values of the battery at address 2 = `~20024642E00202FD33\r`.
 |---|---|---|
 | `4F` | — | protocol version (in VER); used as a ping |
 | `42` | address | data flag, address, cell count + mV per cell, temperature count + values in 0.1 K (°C = (raw − 2731) / 10), current (signed, **0.1 A**), voltage (mV), remaining capacity (mAh), user-defined byte, full capacity, cycles; if the user-defined byte is `04`, 3-byte remaining and full capacities (mAh) follow and replace the 2-byte ones |
-| `44` | address | per-cell and per-temperature state (`00` normal, `01` low, `02` high, `F0` fault), charge current / pack voltage / discharge current state, then status bytes |
+| `44` | address | per-cell and per-temperature state (`00` normal, `01` low, `02` high, `F0` fault), charge current / pack voltage / discharge current state, then status bytes 1–5 (decoded, see above) |
 | `92` | address | charge voltage limit, discharge voltage limit (mV), charge / discharge current limit (signed, 0.1 A), flags: `80` charge enabled, `40` discharge enabled, `20` charge immediately, `10` charge immediately 2, `08` full charge request |
 | `51` | — | model (10 bytes ASCII), software version (2 bytes), manufacturer (20 bytes ASCII) |
 | `93` | address | address + serial number (ASCII) |
