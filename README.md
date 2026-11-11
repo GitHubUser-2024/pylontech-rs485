@@ -8,6 +8,8 @@ Read a **Pylontech** LiFePO₄ battery over its **RS485** port using Pylontech's
 
 Released into the public domain under [The Unlicense](LICENSE): do whatever you want with it.
 
+**Home Assistant users:** the custom integration [ha-pylontech-rs485](https://github.com/GitHubUser-2024/ha-pylontech-rs485) (install via HACS, set up in the UI) and the MQTT publisher [pylontech-ha](https://github.com/GitHubUser-2024/pylontech-ha) are both built on this library.
+
 ## Tested hardware
 
 | | |
