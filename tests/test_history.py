@@ -20,6 +20,9 @@ class HistoryTest(unittest.TestCase):
         self.assertEqual((c2["now_mv"], c2["min_mv"], c2["max_mv"], c2["avg_mv"]), (3346, 3330, 3346, 3338.0))
         self.assertEqual(c2["dev_now_mv"], 4.0)
         self.assertEqual(c2["dev_avg_mv"], 7.0)
+        self.assertEqual((c2["dev_max_mv"], c2["dev_max_ts"]), (10.0, 1050))  # +10 beats +4
+        c3 = st["cells"][2]
+        self.assertEqual((c3["dev_max_mv"], c3["dev_max_ts"]), (-10.0, 1050))  # sign kept
 
     def test_empty(self):
         self.assertIsNone(history.stats([]))

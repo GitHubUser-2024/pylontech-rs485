@@ -48,7 +48,9 @@ def stats(samples):
     """Per-cell and pack statistics over all samples (of the current cell count).
 
     Per cell: now, min, max, avg (mV) and deviation from the pack mean of the same
-    sample, now ("dev_now_mv") and averaged over the window ("dev_avg_mv").
+    sample, now ("dev_now_mv"), averaged over the window ("dev_avg_mv") and the largest
+    one in the window ("dev_max_mv", signed: the deviation with the biggest magnitude;
+    "dev_max_ts" = when it happened). The averages hide short peaks, the max shows them.
     Pack: spread (max - min cell) now / avg / min / max over the window.
     Returns None for an empty history.
     """
@@ -62,6 +64,7 @@ def stats(samples):
     for i in range(n):
         vals = [s[1][i] for s in use]
         devs = [v - m for v, m in zip(vals, means)]
+        k = max(range(len(devs)), key=lambda j: abs(devs[j]))
         cells.append({
             "cell": i + 1,
             "now_mv": now[i],
@@ -70,6 +73,8 @@ def stats(samples):
             "avg_mv": round(sum(vals) / len(vals), 1),
             "dev_now_mv": round(now[i] - means[-1], 1),
             "dev_avg_mv": round(sum(devs) / len(devs), 1),
+            "dev_max_mv": round(devs[k], 1),
+            "dev_max_ts": use[k][0],
         })
     spreads = [max(s[1]) - min(s[1]) for s in use]
     return {

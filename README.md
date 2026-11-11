@@ -129,7 +129,7 @@ Notes:
 
 With `--history FILE`, each `read` appends the cell voltages to a small JSON file (`[[timestamp, [mV, …]], …]`), drops samples older than the window (`--window-days`, default 7) and adds a `history` block:
 
-- per cell: `now_mv`, `min_mv`, `max_mv`, `avg_mv` over the window, and the **deviation from the pack mean** of the same sample, now (`dev_now_mv`) and averaged (`dev_avg_mv`);
+- per cell: `now_mv`, `min_mv`, `max_mv`, `avg_mv` over the window, and the **deviation from the pack mean** of the same sample, now (`dev_now_mv`), averaged (`dev_avg_mv`) and the **largest** one in the window (`dev_max_mv`, signed, with its time `dev_max_ts`). The average hides short sags or peaks; the max shows which cell drifts furthest;
 - pack: `spread_now_mv` (highest − lowest cell), `spread_avg_mv`, `spread_min_mv`, `spread_max_mv`, plus `samples` and `span_days`.
 
 Min/max per cell mostly follow the state of charge. The deviation columns are the ones that show imbalance between cells. Run it from cron or a systemd timer, e.g. every 10 minutes (about 1000 samples per week).
